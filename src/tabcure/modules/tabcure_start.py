@@ -25,10 +25,10 @@ def _pad_tokens(tokens):
     return tokens
 
 
-class GReaTStart:
-    """Abstract super class GReaT Start
+class TabCureStart:
+    """Abstract super class TabCure Start
 
-    GReaT Start creates tokens to start the generation process.
+    TabCure Start creates tokens to start the generation process.
 
     Attributes:
         tokenizer (AutoTokenizer): Tokenizer, automatically downloaded from llm-checkpoint
@@ -57,7 +57,7 @@ class GReaTStart:
         raise NotImplementedError("This has to be overwritten but the subclasses")
 
 
-class CategoricalStart(GReaTStart):
+class CategoricalStart(TabCureStart):
     """Categorical Starting Feature
 
     A categorical column with its categories is used as starting point.
@@ -93,7 +93,7 @@ class CategoricalStart(GReaTStart):
         return start_tokens
 
 
-class ContinuousStart(GReaTStart):
+class ContinuousStart(TabCureStart):
     """Continuous Starting Feature
 
     A continuous column with some noise is used as starting point.
@@ -135,7 +135,7 @@ class ContinuousStart(GReaTStart):
         return start_tokens
 
 
-class RandomStart(GReaTStart):
+class RandomStart(TabCureStart):
     """Random Starting Features
 
     Random column names are used as start point. Can be used if no distribution of any column is known.

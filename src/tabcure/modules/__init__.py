@@ -1,5 +1,5 @@
-from .great import GReaT
+from .tabcure import TabCure
 
 __all__ = [
-    "GReaT",
+    "TabCure",
 ]
