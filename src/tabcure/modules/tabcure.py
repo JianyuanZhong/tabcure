@@ -7,23 +7,21 @@ import warnings
 import numpy as np
 import pandas as pd
 import torch
-from peft import LoraConfig, get_peft_model
+from peft import get_peft_model
 from torch import nn
 from tqdm import tqdm
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     DataCollatorForLanguageModeling,
-    GenerationConfig,
     LlamaForCausalLM,
     LlamaTokenizer,
-    TrainingArguments,
 )
 
-from .great_dataset import TabCureDataset
-from .great_start import CategoricalStart, ContinuousStart, RandomStart, TabCureStart
-from .great_trainer import TabCureTrainer
-from .great_utils import (
+from .tabcure_dataset import TabCureDataset
+from .tabcure_start import CategoricalStart, ContinuousStart, RandomStart, TabCureStart
+from .tabcure_trainer import TabCureTrainer
+from .tabcure_utils import (
     _array_to_dataframe,
     _convert_text_to_tabular_data,
     _convert_tokens_to_text,
@@ -54,17 +52,13 @@ class TabCure:
         conditional_col_dist (dict | list): Distribution of the feature/column specified by condtional_col
     """
 
-    def __init__(
-        self, llm: str, experiment_dir: str = "trainer_great", epochs: int = 100, batch_size: int = 8, **train_kwargs
-    ):
+    def __init__(self, llm: str, trainer_config, peft_config, generator_config=None):
         """Initializes TabCure.
 
         Args:
             llm: HuggingFace checkpoint of a pretrained large language model, used a basis of our model
-            experiment_dir:  Directory, where the training checkpoints will be saved
-            epochs: Number of epochs to fine-tune the model
-            batch_size: Batch size used for fine-tuning
-            train_kwargs: Additional hyperparameters added to the TrainingArguments used by the HuggingFaceLibrary,
+            trainer_config: config for trainer hyper-parameters
+            peft_config: config fot parameters efficient training
              see here the full list of all possible values
              https://huggingface.co/docs/transformers/main/en/main_classes/trainer#transformers.TrainingArguments
         """
@@ -92,10 +86,8 @@ class TabCure:
                 self.model.resize_token_embeddings(len(self.tokenizer))
 
         # Set the training hyperparameters
-        self.experiment_dir = experiment_dir
-        self.epochs = epochs
-        self.batch_size = batch_size
-        self.train_hyperparameters = train_kwargs
+        self.trainer_config = trainer_config
+        self.peft_config = peft_config
 
         # Needed for the sampling process
         self.columns = None
@@ -135,15 +127,9 @@ class TabCure:
 
         # Set training hyperparameters
         logging.info("Create TabCure Trainer...")
-        training_args = TrainingArguments(
-            self.experiment_dir,
-            num_train_epochs=self.epochs,
-            per_device_train_batch_size=self.batch_size,
-            **self.train_hyperparameters,
-        )
         great_trainer = TabCureTrainer(
             self.model,
-            training_args,
+            self.trainer_config,
             train_dataset=great_ds,
             tokenizer=self.tokenizer,
             data_collator=DataCollatorForLanguageModeling(tokenizer=self.tokenizer, mlm=False),
@@ -190,16 +176,7 @@ class TabCure:
 
         self.model.lm_head = CastOutputToFloat(self.model.lm_head)
 
-        config = LoraConfig(
-            r=16,
-            lora_alpha=32,
-            target_modules=["q_proj", "v_proj"],
-            lora_dropout=0.05,
-            bias="none",
-            task_type="CAUSAL_LM",
-        )
-
-        self.model = get_peft_model(self.model, config)
+        self.model = get_peft_model(self.model, self.peft_config)
         print_trainable_parameters(self.model)
 
         return self.fit(data, column_names, conditional_col, resume_from_checkpoint)
@@ -207,31 +184,22 @@ class TabCure:
     def sample(
         self,
         n_samples: int,
+        k: int,
+        config: dict,
         start_col: tp.Optional[str] = "",
         start_col_dist: tp.Optional[tp.Union[dict, list]] = None,
-        temperature: float = 0.4,
-        k: int = 100,
-        max_length: int = 100,
-        remove_nan=True,
     ) -> pd.DataFrame:
         """Generate synthetic tabular data samples
 
         Args:
             n_samples: Number of synthetic samples to generate
+            k: batch size for sampling
+            config: The config for huggingface generation
             start_col: Feature to use as starting point for the generation process. If not given, the target
              learned during the fitting is used as starting point
             start_col_dist: Feature distribution of the starting feature. Should have the format
              "{F1: p1, F2: p2, ...}" for discrete columns or be a list of possible values for continuous columns.
              If not given, the target distribution learned during the fitting is used as starting point
-            temperature: The generation samples each token from the probability distribution given by a softmax
-             function. The temperature parameter controls the softmax function. A low temperature makes it sharper
-             (0 equals greedy search), a high temperature brings more diversity but also uncertainty into the output.
-             See this blog article (https://huggingface.co/blog/how-to-generate) to read more about the generation
-             process
-            k: Sampling Batch Size. Set as high as possible. Speeds up the generation process significantly
-            max_length: Maximal number of tokens to generate - has to be long enough to not cut any information!
-            device: Set to "cpu" if the GPU should not be used. You can also specify the concrete GPU
-
         Returns:
             Pandas DataFrame with n_samples rows of generated data
         """
@@ -249,17 +217,8 @@ class TabCure:
                 start_tokens = great_start.get_start_tokens(k)
                 start_tokens = torch.tensor(start_tokens).to(self.model.device)
 
-                generation_config = GenerationConfig(
-                    temperature=temperature,
-                    # top_p=0.75,
-                    top_k=50,
-                    num_beams=2,
-                    max_new_tokens=max_length,
-                    pad_token_id=32000,
-                )
-
                 # Generate tokens
-                tokens = self.model.generate(input_ids=start_tokens, generation_config=generation_config)
+                tokens = self.model.generate(input_ids=start_tokens, generation_config=config)
 
                 # Convert tokens back to tabular data
                 text_data = _convert_tokens_to_text(tokens, self.tokenizer)
@@ -272,8 +231,7 @@ class TabCure:
                 df_gen[self.num_cols] = df_gen[self.num_cols].astype(float)
 
                 # Remove rows with missing values
-                if remove_nan:
-                    df_gen = df_gen.drop(df_gen[df_gen.isna().any(axis=1)].index)
+                df_gen = df_gen.drop(df_gen[df_gen.isna().any(axis=1)].index)
 
                 # Update process bar
                 pbar.update(df_gen.shape[0] - already_generated)
