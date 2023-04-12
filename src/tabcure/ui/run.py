@@ -2,7 +2,6 @@ from pathlib import Path
 
 import streamlit as st
 import wandb
-
 from nn_core.serialization import load_model
 from nn_core.ui import select_checkpoint
 
