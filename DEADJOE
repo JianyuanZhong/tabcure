@@ -1,0 +1,19 @@
+
+*** These modified files were found in JOE when it aborted on Thu Apr 13 02:10:25 2023
+*** JOE was aborted because the terminal closed
+
+*** File '(Unnamed)'
+/data/d0/rshr/jyzhong/.gitconfig
+
+*** File '/data/d0/rshr/jyzhong/.gitconfig'
+# This is Git's per-user configuration file.
+[user]
+# Please adapt and uncomment the following lines:
+#	name = Zhong Jian Yuan
+#	email = jyzhong@linux2.cse.cuhk.edu.hk
+
+*** File '* Startup Log *'
+Processing '/etc/joe/editorrc'...
+Processing '/etc/joe/ftyperc'...
+Finished processing /etc/joe/ftyperc
+Finished processing /etc/joe/editorrc

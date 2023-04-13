@@ -1,4 +1,4 @@
-name: tabcure
+name: tabcure2
 channels:
   - defaults
   - pytorch

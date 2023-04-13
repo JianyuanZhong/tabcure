@@ -107,9 +107,9 @@ def _convert_text_to_tabular_data(text: tp.List[str], df_gen: pd.DataFrame) -> p
             if values[0] in columns and not td[values[0]]:
                 try:
                     td[values[0]] = [values[1]]
-                except IndexError:
+                except Exception:
                     # print("An Index Error occurred - if this happends a lot, consider fine-tuning your model further.")
-                    pass
+                    raise
 
         df_gen = pd.concat([df_gen, pd.DataFrame(td)], ignore_index=True, axis=0)
     return df_gen

@@ -14,7 +14,7 @@ trainer:
   gradient_accumulation_steps: 2
 
 peft:
-  r: 16
+  r: 160
   lora_alpha: 32
   target_modules: [q_proj, v_proj]
   lora_dropout: 0.05
@@ -22,9 +22,9 @@ peft:
   task_type: CAUSAL_LM
 
 generation:
-  temperature: 0.8
+  temperature: 0.2
   top_p: 0.75
   top_k: 50
-  num_beams: 2
+  num_beams: 1
   max_new_tokens: 100
   pad_token_id: 32000

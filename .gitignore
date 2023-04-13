@@ -2,6 +2,10 @@ wandb
 multirun.yaml
 storage
 
+# ingnore slurm output files
+*.out
+*.err
+
 # ignore the _version.py file
 _version.py
 

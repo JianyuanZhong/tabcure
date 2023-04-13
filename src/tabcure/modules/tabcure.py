@@ -52,7 +52,7 @@ class TabCure:
         conditional_col_dist (dict | list): Distribution of the feature/column specified by condtional_col
     """
 
-    def __init__(self, llm: str, trainer_config, peft_config, generator_config=None):
+    def __init__(self, llm: str, trainer_config=None, peft_config=None):
         """Initializes TabCure.
 
         Args:
@@ -222,7 +222,12 @@ class TabCure:
 
                 # Convert tokens back to tabular data
                 text_data = _convert_tokens_to_text(tokens, self.tokenizer)
-                df_gen = _convert_text_to_tabular_data(text_data, df_gen)
+                try:
+                    df_gen = _convert_text_to_tabular_data(text_data, df_gen)
+                except Exception:
+                    for i, txt in enumerate(text_data):
+                        print(f"{i}th sample text is: {txt}")
+                    raise ValueError
 
                 # Remove rows with flawed numerical values
                 for i_num_cols in self.num_cols:
