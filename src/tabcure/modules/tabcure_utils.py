@@ -74,12 +74,16 @@ def _convert_tokens_to_text(tokens: tp.List[torch.Tensor], tokenizer: AutoTokeni
         List of decoded strings
     """
     # Convert tokens to text
-    text_data = [tokenizer.decode(t) for t in tokens]
+    text_data = [tokenizer.decode(t, skip_special_tokens=True) for t in tokens]
 
     # Clean text
     text_data = [d.replace("<|endoftext|>", "") for d in text_data]
     text_data = [d.replace("\n", " ") for d in text_data]
     text_data = [d.replace("\r", "") for d in text_data]
+    # text_data = [d.replace(tokenizer.bos_token, "") for d in text_data]
+    # text_data = [d.replace(tokenizer.pad_token, "") for d in text_data]
+    for st in tokenizer.all_special_tokens:
+        text_data = [d.replace(st, "") for d in text_data]
 
     return text_data
 
@@ -109,7 +113,7 @@ def _convert_text_to_tabular_data(text: tp.List[str], df_gen: pd.DataFrame) -> p
                     td[values[0]] = [values[1]]
                 except Exception:
                     # print("An Index Error occurred - if this happends a lot, consider fine-tuning your model further.")
-                    raise
+                    pass
 
         df_gen = pd.concat([df_gen, pd.DataFrame(td)], ignore_index=True, axis=0)
     return df_gen

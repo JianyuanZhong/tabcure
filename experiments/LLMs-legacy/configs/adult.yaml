@@ -3,7 +3,7 @@ dataset: adult
 
 trainer:
   report_to: wandb
-  num_train_epochs: 10
+  num_train_epochs: 20
   save_steps: 500
   logging_steps: 10
   output_dir: adult-trainer
@@ -14,7 +14,7 @@ trainer:
   gradient_accumulation_steps: 2
 
 peft:
-  r: 160
+  r: 64
   lora_alpha: 32
   target_modules: [q_proj, v_proj]
   lora_dropout: 0.05
@@ -23,8 +23,8 @@ peft:
 
 generation:
   temperature: 0.2
-  top_p: 0.75
+  top_p: 0.9
   top_k: 50
-  num_beams: 1
+  num_beams: 2
   max_new_tokens: 100
   pad_token_id: 32000

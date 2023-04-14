@@ -28,11 +28,11 @@ source activate tabcure2
 pip install sentencepiece
 
 cd /research/d1/rshr/jyzhong/structured_data/tabcure/experiments/LLMs-legacy
-if [ $SLURM_ARRAY_TASK_ID == 1 ]; then
-    python pipline_LLM.py --config configs/adult.yaml
-fi
+# if [ $SLURM_ARRAY_TASK_ID == 1 ]; then
+#     python pipline_LLM.py --config configs/adult.yaml
+# fi
 
-if [ $SLURM_ARRAY_TASK_ID == 2 ]; then
+if [ $SLURM_ARRAY_TASK_ID == 1 ]; then
     python pipline_LLM.py --config configs/heloc.yaml
 fi
 

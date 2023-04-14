@@ -3,7 +3,7 @@
 #SBATCH --mail-user=jianyuanzhong@cse.cuhk.edu.hk
 #SBATCH --mail-type=ALL
 #SBATCH --gres=gpu:rtx3090:1
-#SBATCH -a 1-3
+#SBATCH -a 1-4
 #SBATCH --output=array_job_%A_%a.out
 #SBATCH --error=array_job_%A_%a.err
 
@@ -34,4 +34,8 @@ fi
 
 if [ $SLURM_ARRAY_TASK_ID == 3 ]; then
     python pipline_LLM.py --config configs/travel.yaml
+fi
+
+if [ $SLURM_ARRAY_TASK_ID == 4 ]; then
+    python pipline_LLM.py --config configs/adult-gpt-neo.yaml
 fi

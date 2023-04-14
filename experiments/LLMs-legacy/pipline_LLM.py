@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 import wandb
 import yaml
-from peft import LoraConfig, PeftConfig, PeftModel, get_peft_model
+from peft import LoraConfig, PeftConfig, PeftModel
 from sdv.datasets.demo import download_demo
 from sdv.evaluation.single_table import evaluate_quality, run_diagnostic
 from sdv.metadata import SingleTableMetadata
@@ -14,7 +14,6 @@ from sklearn.model_selection import train_test_split
 from transformers import GenerationConfig, TrainingArguments
 
 from tabcure import TabCure, seed_everything, set_logging_level
-from tabcure.modules.tabcure_utils import print_trainable_parameters
 from tabcure.tabular_metrices.efficacy import (
     BinaryAdaBoostClassifier,
     BinaryDecisionTreeClassifier,
@@ -55,33 +54,10 @@ def train(config, real_data):
     peft_config = LoraConfig(**config["peft"])
 
     tabcure = TabCure(config["LLM"], trainer_config=trainer_config, peft_config=peft_config)
-    for param in tabcure.model.parameters():
-        param.requires_grad = False  # freeze the tabcure.model - train adapters later
-        if param.ndim == 1:
-            # cast the small parameters (e.g. layernorm) to fp32 for stability
-            param.data = param.data.to(torch.float32)
-
-    tabcure.model.gradient_checkpointing_enable()  # reduce number of stored activations
-    tabcure.model.enable_input_require_grads()
-
-    class CastOutputToFloat(torch.nn.Sequential):
-        def forward(self, x):
-            return super().forward(x).to(torch.float32)
-
-    tabcure.model.lm_head = CastOutputToFloat(tabcure.model.lm_head)
-    tabcure.model = get_peft_model(tabcure.model, peft_config)
-
-    print_trainable_parameters(tabcure.model)
-
-    pth = "/research/d1/rshr/jyzhong/structured_data/structured_LLM/pipline_LLM/trainer_adult/checkpoint-2500/pytorch_model.bin"
-    checkpoint = torch.load(pth, map_location="cpu")
-
-    for k, v in checkpoint.items():
-        new_k = ".".join(k.split(".")[2:])
-        if not new_k.startswith("base_model"):
-            new_k = "base_model.model.lm_head.0.weight"
-        logging.info(f"loading {new_k} inplace.")
-        tabcure.model.state_dict()[new_k].data = v.to(tabcure.model.device)
+    # try:
+    tabcure.lora_fit(real_data, resume_from_checkpoint=True)
+    # except Exception:
+    #     tabcure.lora_fit(real_data, resume_from_checkpoint=False)
 
     tabcure.model.save_pretrained(f"exp-{config['dataset']}/pretrained")
 
@@ -160,7 +136,7 @@ def main():
     real_data, real_test, metadata = get_data(config)
 
     logger.info(f"training for dataset: {dataset_name}")
-    # train(config, real_data)
+    train(config, real_data)
 
     logger.info(f"generating synthetic dataset: {dataset_name}")
     synthetic_data = generate(config, real_data, n_samples=len(real_data))

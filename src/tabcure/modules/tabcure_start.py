@@ -10,7 +10,7 @@ def _pad(x, length: int, pad_value=32000):
 
 
 #
-def _pad_tokens(tokens):
+def _pad_tokens(tokens, pad_value):
     """
     Checks that all tensors in the list have the same length, pads them if necessary to the max length
 
@@ -21,7 +21,7 @@ def _pad_tokens(tokens):
         List of Tensors, where each Tensor has the same length
     """
     max_length = len(max(tokens, key=len))
-    tokens = [_pad(t, max_length) for t in tokens]
+    tokens = [_pad(t, max_length, pad_value=pad_value) for t in tokens]
     return tokens
 
 
@@ -43,7 +43,7 @@ class TabCureStart:
         """
         self.tokenizer = tokenizer
 
-    def get_start_tokens(self, n_samples: int) -> tp.List[tp.List[int]]:
+    def get_start_tokens(self, n_samples: int, pad_token_id: int) -> tp.List[tp.List[int]]:
         """Get Start Tokens
 
         Creates starting points for the generation process
@@ -86,10 +86,10 @@ class CategoricalStart(TabCureStart):
         self.population = list(start_col_dist.keys())
         self.weights = list(start_col_dist.values())
 
-    def get_start_tokens(self, n_samples):
+    def get_start_tokens(self, n_samples, pad_token_id):
         start_words = random.choices(self.population, self.weights, k=n_samples)
         start_text = [self.start_col + " is " + str(s) + "," for s in start_words]
-        start_tokens = _pad_tokens(self.tokenizer(start_text)["input_ids"])
+        start_tokens = _pad_tokens(self.tokenizer(start_text)["input_ids"], pad_value=pad_token_id)
         return start_tokens
 
 
@@ -127,11 +127,11 @@ class ContinuousStart(TabCureStart):
         self.noise = noise
         self.decimal_places = decimal_places
 
-    def get_start_tokens(self, n_samples):
+    def get_start_tokens(self, n_samples, pad_token_id):
         start_words = random.choices(self.start_col_dist, k=n_samples)
         # start_words += np.random.normal(size=n_samples) * self.noise  # add noise to start words
         start_text = [self.start_col + " is " + format(s, f".{self.decimal_places}f") + "," for s in start_words]
-        start_tokens = _pad_tokens(self.tokenizer(start_text)["input_ids"])
+        start_tokens = _pad_tokens(self.tokenizer(start_text)["input_ids"], pad_value=pad_token_id)
         return start_tokens
 
 
@@ -154,8 +154,8 @@ class RandomStart(TabCureStart):
         super().__init__(tokenizer)
         self.all_columns = all_columns
 
-    def get_start_tokens(self, n_samples):
+    def get_start_tokens(self, n_samples, pad_token_id):
         start_words = random.choices(self.all_columns, k=n_samples)
         start_text = [s + " is " for s in start_words]
-        start_tokens = _pad_tokens(self.tokenizer(start_text)["input_ids"])
+        start_tokens = _pad_tokens(self.tokenizer(start_text)["input_ids"], pad_value=pad_token_id)
         return start_tokens

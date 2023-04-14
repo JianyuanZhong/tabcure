@@ -1,3 +1,4 @@
+import glob
 import json
 import logging
 import os
@@ -179,6 +180,22 @@ class TabCure:
         self.model = get_peft_model(self.model, self.peft_config)
         print_trainable_parameters(self.model)
 
+        if resume_from_checkpoint:
+            out_dir = self.trainer_config.output_dir
+            ckpt_pths = glob.glob(f"{out_dir}/*/pytorch_model.bin")
+            print(ckpt_pths)
+            ckpt_pths.sort(key=lambda x: int(x.split("/")[-2].split("-")[-1]))
+            pth = ckpt_pths[-1]
+            logging.info(f"loaded {pth} into model to resume training..")
+            checkpoint = torch.load(pth, map_location="cpu")
+            new_dict = {}
+            for k, v in checkpoint.items():
+                new_k = ".".join(k.split(".")[2:])
+                if not new_k.startswith("base_model"):
+                    new_k = "base_model.model.lm_head.0.weight"
+                new_dict[new_k] = v
+            self.model.load_state_dict(new_dict)
+
         return self.fit(data, column_names, conditional_col, resume_from_checkpoint)
 
     def sample(
@@ -210,16 +227,16 @@ class TabCure:
         # Init empty DataFrame for the generated samples
         df_gen = pd.DataFrame(columns=self.columns)
 
+        config.pad_token_id = self.tokenizer.pad_token_id
+
         # Start generation process
         with tqdm(total=n_samples) as pbar:
             already_generated = 0
             while n_samples > df_gen.shape[0]:
-                start_tokens = great_start.get_start_tokens(k)
+                start_tokens = great_start.get_start_tokens(k, self.tokenizer.pad_token_id)
                 start_tokens = torch.tensor(start_tokens).to(self.model.device)
-
                 # Generate tokens
                 tokens = self.model.generate(input_ids=start_tokens, generation_config=config)
-
                 # Convert tokens back to tabular data
                 text_data = _convert_tokens_to_text(tokens, self.tokenizer)
                 try:
@@ -228,7 +245,6 @@ class TabCure:
                     for i, txt in enumerate(text_data):
                         print(f"{i}th sample text is: {txt}")
                     raise ValueError
-
                 # Remove rows with flawed numerical values
                 for i_num_cols in self.num_cols:
                     df_gen = df_gen[pd.to_numeric(df_gen[i_num_cols], errors="coerce").notnull()]

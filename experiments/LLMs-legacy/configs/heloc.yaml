@@ -6,7 +6,7 @@ trainer:
   num_train_epochs: 20
   save_steps: 200
   logging_steps: 10
-  output_dir: heloc-trainer
+  output_dir: ../LLMs/heloc-trainer
   per_device_train_batch_size: 32
   learning_rate: 0.0001
   fp16: True
@@ -14,7 +14,7 @@ trainer:
   gradient_accumulation_steps: 4
 
 peft:
-  r: 16
+  r: 64
   lora_alpha: 32
   target_modules: [q_proj, v_proj]
   lora_dropout: 0.05
@@ -22,9 +22,9 @@ peft:
   task_type: CAUSAL_LM
 
 generation:
-  temperature: 0.8
+  temperature: 0.4
   top_p: 0.75
-  top_k: 50
-  num_beams: 2
-  max_new_tokens: 100
+  top_k: 40
+  num_beams: 1
+  max_new_tokens: 500
   pad_token_id: 32000
