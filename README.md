@@ -18,11 +18,6 @@ pip install git+ssh://git@github.com/JianyuanZhong/tabcure.git
 ```
 
 
-## Quickstart
-
-[comment]: <> (> Fill me!)
-
-
 ## Development installation
 
 Setup the development environment:
@@ -49,4 +44,37 @@ Re-install the project in edit mode:
 
 ```bash
 pip install -e .[dev]
+```
+
+### Train your own LLM-based tabular data generator
+
+```python
+import pandas as pd
+from tabcure import TabCure
+from transformers import GenerationConfig, TrainingArguments
+from peft import LoraConfig, PeftConfig, PeftModel
+
+real_data = pd.read_csv("path to your own data.")
+
+# train, PEFT and generation configs
+trainer_config = TrainingArguments(
+    num_train_epochs=20,
+    logging_steps=10,
+    per_device_train_batch_size=32,
+    learning_rate=0.0001,
+)
+peft_config = LoraConfig(r=64)
+gen_config = GenerationConfig(temperature=0.8)
+
+# train
+tabcure = TabCure(
+    "decapoda-research/llama-7b-hf",
+    trainer_config=trainer_config,
+    peft_config=peft_config,
+)
+tabcure.lora_fit(real_data)
+
+# generate
+samples = tabcure.sample(n_samples, config=gen_config, k=10)
+samples.to_csv("path to your synthetic data.")
 ```

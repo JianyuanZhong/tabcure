@@ -7,11 +7,11 @@ trainer:
   save_steps: 500
   logging_steps: 10
   output_dir: adult-trainer
-  per_device_train_batch_size: 64
+  per_device_train_batch_size: 32
   learning_rate: 0.0001
   fp16: True
   warmup_ratio: 0.167
-  gradient_accumulation_steps: 2
+  gradient_accumulation_steps: 4
 
 peft:
   r: 160

@@ -76,7 +76,7 @@ def generate(config, real_data, n_samples):
     # update colomns info for newly loaded model
     tabcure._update_column_information(real_data)
 
-    samples = tabcure.sample(n_samples, config=GenerationConfig(**config["generation"]), k=100)
+    samples = tabcure.sample(n_samples, config=GenerationConfig(**config["generation"]), k=10)
     samples.to_csv(f"exp-{config['dataset']}/{config['dataset']}_synthetic.csv")
     return samples
 
