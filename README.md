@@ -46,7 +46,7 @@ Re-install the project in edit mode:
 pip install -e .[dev]
 ```
 
-### Train your own LLM-based tabular data generator
+## Quick Start
 
 ```python
 import pandas as pd
