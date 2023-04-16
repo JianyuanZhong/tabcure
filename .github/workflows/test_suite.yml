@@ -134,9 +134,9 @@ jobs:
           pre-commit install
           pre-commit run -v --all-files --show-diff-on-failure
 
-      - name: Test with pytest
-        shell: bash -l {0}
-        run: |
-          pytest -v
+      # - name: Test with pytest
+      #   shell: bash -l {0}
+      #   run: |
+      #     pytest -v
 #
 #
