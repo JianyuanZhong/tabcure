@@ -25,6 +25,7 @@ from tabcure.tabular_metrices.efficacy import (
 parser = argparse.ArgumentParser(description="Parse a config file")
 # Add an argument for the config file name
 parser.add_argument("--config", required=True, type=str, help="The path to a config file")
+parser.add_argument("--test", action="store_true", help="Preform test, otherwise train")
 # Parse the command line arguments
 args = parser.parse_args()
 
@@ -42,7 +43,7 @@ with open(os.path.join(CURRENT_DIR, args.config), "r") as f:
 os.environ["WANDB_PROJECT"] = f"TabCure-{config['dataset']}"
 
 # save your trained model checkpoint to wandb
-os.environ["WANDB_LOG_MODEL"] = "true"
+os.environ["WANDB_LOG_MODEL"] = "false"
 
 # turn off watch to log faster
 os.environ["WANDB_WATCH"] = "false"
@@ -54,10 +55,7 @@ def train(config, real_data):
     peft_config = LoraConfig(**config["peft"])
 
     tabcure = TabCure(config["LLM"], trainer_config=trainer_config, peft_config=peft_config)
-    try:
-        tabcure.lora_fit(real_data, resume_from_checkpoint=True)
-    except Exception:
-        tabcure.lora_fit(real_data, resume_from_checkpoint=False)
+    tabcure.lora_fit(real_data, resume_from_checkpoint=True)
 
     tabcure.model.save_pretrained(f"exp-{config['dataset']}/pretrained")
 
@@ -76,12 +74,22 @@ def generate(config, real_data, n_samples):
     # update colomns info for newly loaded model
     tabcure._update_column_information(real_data)
 
-    samples = tabcure.sample(n_samples, config=GenerationConfig(**config["generation"]), k=10)
-    samples.to_csv(f"exp-{config['dataset']}/{config['dataset']}_synthetic.csv")
+    target = config["target"]
+    unique_values = real_data[target].value_counts()
+    unique_values = unique_values.to_dict()
+    for k, v in unique_values.items():
+        unique_values[k] = v / len(real_data)
+
+    samples = tabcure.sample(
+        n_samples, config=GenerationConfig(**config["generation"]), k=10, start_col=target, start_col_dist=unique_values
+    )
+    samples.to_csv(f"exp-{config['dataset']}/{config['dataset']}_{config['LLM'].split('/')[-1]}_synthetic.csv")
     return samples
 
 
-def evaluate(real_test, synthetic_data, metadata):
+def evaluate(real_test, synthetic_data, metadata, config):
+    target = config["target"]
+
     # run standard quanlity report
     evaluate_quality(real_data=real_test, synthetic_data=synthetic_data, metadata=metadata)
 
@@ -95,21 +103,21 @@ def evaluate(real_test, synthetic_data, metadata):
 
     # run MLE
     ada_score = BinaryAdaBoostClassifier.compute(
-        test_data=real_test, train_data=synthetic_data, target="label", metadata=metadata
+        test_data=real_test, train_data=synthetic_data, target=target, metadata=metadata
     )
     logger.info(f"MLE score for Ada: {ada_score}")
     lr_score = BinaryLogisticRegression.compute(
-        test_data=real_test, train_data=synthetic_data, target="label", metadata=metadata
+        test_data=real_test, train_data=synthetic_data, target=target, metadata=metadata
     )
     logger.info(f"MLE score for LR: {lr_score}")
     tl_score = BinaryDecisionTreeClassifier.compute(
-        test_data=real_test, train_data=synthetic_data, target="label", metadata=metadata
+        test_data=real_test, train_data=synthetic_data, target=target, metadata=metadata
     )
     logger.info(f"MLE score for TL: {tl_score}")
     mlp_score = BinaryMLPClassifier.compute(
         test_data=real_test,
         train_data=synthetic_data,
-        target="label",
+        target=target,
         metadata=metadata,
     )
     logger.info(f"MLE score for MLP: {mlp_score}")
@@ -131,20 +139,21 @@ def get_data(config):
     return real_data, real_test, metadata
 
 
-def main():
+def main(args):
     dataset_name = config["dataset"]
     real_data, real_test, metadata = get_data(config)
 
-    logger.info(f"training for dataset: {dataset_name}")
-    train(config, real_data)
+    if not args.test:
+        logger.info(f"training for dataset: {dataset_name}")
+        train(config, real_data)
+    else:
+        logger.info(f"generating synthetic dataset: {dataset_name}")
+        synthetic_data = generate(config, real_data, n_samples=len(real_data))
 
-    logger.info(f"generating synthetic dataset: {dataset_name}")
-    synthetic_data = generate(config, real_data, n_samples=len(real_data))
-
-    logger.info(f"Evaluating synthetic dataset: {dataset_name}")
-    evaluate(real_test, synthetic_data, metadata)
+        logger.info(f"Evaluating synthetic dataset: {dataset_name}")
+        evaluate(real_test, synthetic_data, metadata, config)
 
 
 if __name__ == "__main__":
-    main()
+    main(args)
     wandb.finish()

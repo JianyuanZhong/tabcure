@@ -1,5 +1,6 @@
 LLM: decapoda-research/llama-7b-hf
 dataset: heloc
+target: RiskPerformance
 
 trainer:
   report_to: wandb
@@ -22,9 +23,10 @@ peft:
   task_type: CAUSAL_LM
 
 generation:
-  temperature: 0.4
+  temperature: 0.8
   top_p: 0.75
   top_k: 40
   num_beams: 1
   max_new_tokens: 500
   pad_token_id: 32000
+  do_sample: True

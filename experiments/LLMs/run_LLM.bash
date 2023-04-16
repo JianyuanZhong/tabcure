@@ -26,16 +26,20 @@ source activate tabcure
 
 if [ $SLURM_ARRAY_TASK_ID == 1 ]; then
     python pipline_LLM.py --config configs/adult.yaml
+    python pipline_LLM.py --config configs/adult.yaml --test
 fi
 
 if [ $SLURM_ARRAY_TASK_ID == 2 ]; then
     python pipline_LLM.py --config configs/heloc.yaml
+    python pipline_LLM.py --config configs/heloc.yaml --test
 fi
 
 if [ $SLURM_ARRAY_TASK_ID == 3 ]; then
     python pipline_LLM.py --config configs/travel.yaml
+    python pipline_LLM.py --config configs/travel.yaml --test
 fi
 
 if [ $SLURM_ARRAY_TASK_ID == 4 ]; then
     python pipline_LLM.py --config configs/adult-gpt-neo.yaml
+    python pipline_LLM.py --config configs/adult-gpt-neo.yaml --test
 fi

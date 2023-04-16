@@ -182,19 +182,35 @@ class TabCure:
 
         if resume_from_checkpoint:
             out_dir = self.trainer_config.output_dir
-            ckpt_pths = glob.glob(f"{out_dir}/*/pytorch_model.bin")
-            print(ckpt_pths)
-            ckpt_pths.sort(key=lambda x: int(x.split("/")[-2].split("-")[-1]))
-            pth = ckpt_pths[-1]
-            logging.info(f"loaded {pth} into model to resume training..")
-            checkpoint = torch.load(pth, map_location="cpu")
-            new_dict = {}
-            for k, v in checkpoint.items():
-                new_k = ".".join(k.split(".")[2:])
-                if not new_k.startswith("base_model"):
-                    new_k = "base_model.model.lm_head.0.weight"
-                new_dict[new_k] = v
-            self.model.load_state_dict(new_dict)
+            if os.path.exists(out_dir):
+                ckpt_pths = glob.glob(f"{out_dir}/*/pytorch_model.bin")
+                if len(ckpt_pths) > 0:
+                    ckpt_pths.sort(key=lambda x: int(x.split("/")[-2].split("-")[-1]))
+                    pth = ckpt_pths[-1]
+                    logging.info(f"loaded {pth} into model to resume training..")
+                    checkpoint = torch.load(pth, map_location="cpu")
+                    model_dict = self.model.state_dict()
+                    model_keys = list(model_dict.keys())
+                    # common_peft_prefix = os.path.commonprefix(model_keys[:-1])
+                    try:
+                        new_dict = {}
+                        for i, (k, v) in enumerate(checkpoint.items()):
+                            new_k = os.path.commonprefix([model_keys[i], k])
+                            if "lm_head" in new_k:
+                                new_k = "base_model.model.lm_head.0.weight"
+                            new_dict[new_k] = v
+                    except Exception:
+                        new_dict = {}
+                        for i, (k, v) in enumerate(checkpoint.items()):
+                            new_k = ".".join(k.split(".")[2:])
+                            if "lm_head" in new_k:
+                                new_k = "base_model.model.lm_head.0.weight"
+                            new_dict[new_k] = v
+                    self.model.load_state_dict(new_dict)
+                else:
+                    resume_from_checkpoint = False
+            else:
+                resume_from_checkpoint = False
 
         return self.fit(data, column_names, conditional_col, resume_from_checkpoint)
 
@@ -241,6 +257,7 @@ class TabCure:
                 text_data = _convert_tokens_to_text(tokens, self.tokenizer)
                 try:
                     df_gen = _convert_text_to_tabular_data(text_data, df_gen)
+                    print(df_gen.tail(k))
                 except Exception:
                     for i, txt in enumerate(text_data):
                         print(f"{i}th sample text is: {txt}")
